@@ -1,0 +1,72 @@
+---
+title: "AC2"
+date: "September 26, 2017"
+output: html_document
+---
+
+```{r}
+library(microbenchmark)
+log_factorial <- function (n) {
+    # Return the log of factorial(n) for any integer n > 0
+    if (n <= 1)
+        return (0)
+    return (log(n) + log_factorial(n - 1))
+}
+N=seq(30,300,by=10)
+time1=array(dim=length(N))
+i=1
+for (n in N){
+  time1[i]=median(microbenchmark (log_factorial(n))$time,times=1000)/1000000
+  i=i+1
+}
+plot(N,time1, xlab="N", ylab="time (miliseconds)", main="running time vs n, log_factorial",type="o",pch=15, col="red")
+
+
+```
+```{r}
+library(microbenchmark)
+sum_log_factorial <- function (n) {
+    # Return the sum of log_factorial(i) for i in 1..n
+    sum <- 0
+    for(i in seq(1, n, 1)) {
+        sum <- sum + log_factorial(i)
+    }
+    return (sum)
+}
+N=seq(30,300,by=10)
+time2=array(dim=length(N))
+i=1
+for (n in N){
+  time2[i]=median(microbenchmark (sum_log_factorial(n))$time,times=1000L)/1000000
+  i=i+1
+}
+plot(N,time2, xlab="n", ylab="time (miliseconds)", main="running time vs n, sum_log_factorial",type="o",pch=15, col="green")
+```
+```{r}
+fibonacci <- function(n) {
+    # Return nth Fibonacci number
+    if (n <= 1)
+        return (n)
+    return (fibonacci(n - 1) + fibonacci(n - 2))
+}
+N=seq(3,30,by=1)
+time3=array(dim=length(N))
+i=1
+for (n in N){
+  time3[i]=median(microbenchmark (fibonacci(n))$time)/1000000
+  i=i+1
+}
+plot(N,time3, xlab="n", ylab="time (miliseconds)", main="running time vs n, fibonacci",type="o",pch=15, col="blue")
+
+```
+
+```{r}
+# plot all three lines together
+plot(N,log(time1), xlab="N", ylab="log(time (miliseconds) )",type="o",pch=15, col="red",ylim = c(-6,10))
+points(N,log(time2),type="o",pch=15, col="green")
+points(N,log(time3),type="o",pch=15, col="blue")
+legend("topleft", c("log_factorial","sum_log_factorial","fibonacci"),lty=1,col=c("red","green","blue"),pch = 15)
+
+
+```
+
