@@ -1,0 +1,902 @@
+---
+title: ' Project 2: Modeling and Evaluation'
+subtitle: |-
+  CSE6242 - Data and Visual Analytics - Fall 2017
+  Due: Sunday, November 26, 2017 at 11:59 PM UTC-12:00 on T-Square
+output:
+  html_notebook:
+    code_folding: none
+    theme: default
+  html_document:
+    code_folding: none
+    theme: default
+  pdf_document: default
+---
+
+# Data
+
+We will use the same dataset as Project 1: [`movies_merged`](https://s3.amazonaws.com/content.udacity-data.com/courses/gt-cs6242/project/movies_merged).
+
+# Objective
+
+Your goal in this project is to build a linear regression model that can predict the `Gross` revenue earned by a movie based on other variables. You may use R packages to fit and evaluate a regression model (no need to implement regression yourself). Please stick to linear regression, however.
+
+# Instructions
+
+You should be familiar with using an [RMarkdown](http://rmarkdown.rstudio.com) Notebook by now. Remember that you have to open it in RStudio, and you can run code chunks by pressing *Cmd+Shift+Enter*.
+
+Please complete the tasks below and submit this R Markdown file (as **pr2.Rmd**) containing all completed code chunks and written responses, and a PDF export of it (as **pr2.pdf**) which should include the outputs and plots as well.
+
+_Note that **Setup** and **Data Preprocessing** steps do not carry any points, however, they need to be completed as instructed in order to get meaningful results._
+
+# Setup
+
+Same as Project 1, load the dataset into memory:
+
+```{r}
+load('movies_merged')
+```
+
+This creates an object of the same name (`movies_merged`). For convenience, you can copy it to `df` and start using it:
+
+```{r}
+df = movies_merged
+cat("Dataset has", dim(df)[1], "rows and", dim(df)[2], "columns", end="\n", file="")
+colnames(df)
+```
+
+## Load R packages
+
+Load any R packages that you will need to use. You can come back to this chunk, edit it and re-run to load any additional packages later.
+
+```{r}
+library(ggplot2)
+```
+
+If you are using any non-standard packages (ones that have not been discussed in class or explicitly allowed for this project), please mention them below. Include any special instructions if they cannot be installed using the regular `install.packages('<pkg name>')` command.
+
+**Non-standard packages used**: None
+
+# Data Preprocessing
+
+Before we start building models, we should clean up the dataset and perform any preprocessing steps that may be necessary. Some of these steps can be copied in from your Project 1 solution. It may be helpful to print the dimensions of the resulting dataframe at each step.
+
+## 1. Remove non-movie rows
+
+```{r}
+# TODO: Remove all rows from df that do not correspond to movies
+df <- df[df$Type == "movie",]
+dim(df)
+```
+
+## 2. Drop rows with missing `Gross` value
+
+Since our goal is to model `Gross` revenue against other variables, rows that have missing `Gross` values are not useful to us.
+
+```{r}
+# TODO: Remove rows with missing Gross value
+df=df[!is.na(df$Gross), ]
+```
+
+## 3. Exclude movies released prior to 2000
+
+Inflation and other global financial factors may affect the revenue earned by movies during certain periods of time. Taking that into account is out of scope for this project, so let's exclude all movies that were released prior to the year 2000 (you may use `Released`, `Date` or `Year` for this purpose).
+
+```{r}
+# TODO: Exclude movies released prior to 2000
+df=df[df$Year >= 2000, ]
+```
+
+## 4. Eliminate mismatched rows
+
+_Note: You may compare the `Released` column (string representation of release date) with either `Year` or `Date` (numeric representation of the year) to find mismatches. The goal is to avoid removing more than 10% of the rows._
+
+```{r}
+# TODO: Remove mismatched rows
+total_gross_with_value=sum(!is.na(df$Gross)) # calculate total number of Gross !=NA 
+df$releaseyear=0
+year_numeric=function (x){
+  return (as.numeric(strsplit(as.character(x), "-")[[1]][1]))
+}
+df$releaseyear=sapply(df$Released, year_numeric)
+# generate another column called missmatch initialize as 0
+df$missmatch=0
+# compare year date and releaseyear if they mismatch, lable missmatch as 1, also consider NA 
+for (i in c(1:length(df$Year))){
+  if (is.na(df$Year[i])&is.na(df$Date[i])&is.na(df$releaseyear[i])) df$missmatch[i]=0
+  else if(is.na(df$Year[i])&is.na(df$Date[i])) df$missmatch[i]=0
+  else if (is.na(df$Year[i])&is.na(df$releaseyear[i])) df$missmatch[i]=0
+  else if (is.na(df$Date[i])&is.na(df$releaseyear[i])) df$missmatch[i]=0
+  else if (is.na(df$Year[i])) {
+    if(abs(df$releaseyear[i]-df$Date[i])>1) df$missmatch[i]=1
+    else df$missmatch[i]=0
+  }
+  else if (is.na(df$Date[i])) {
+    if(abs(df$releaseyear[i]-df$Year[i])>1) df$missmatch[i]=1
+    else df$missmatch[i]=0
+  }
+  else if (is.na(df$releaseyear[i])) {
+    if(abs(df$Year[i]-df$Date[i])>1) df$missmatch[i]=1
+    else df$missmatch[i]=0
+  }
+  else if(!is.na(df$Year[i])&!is.na(df$Date[i]) &!is.na(df$releaseyear[i])){
+    if(abs(df$Year[i]-df$Date[i])>1| 
+       abs(df$releaseyear[i]-df$Year[i])>1) df$missmatch[i]=1
+    else df$missmatch[i]=0
+  } 
+}
+# count how many mismatch
+mismatch_number=sum(df$missmatch)
+# remove all the mismatch rows mismatch ==1
+df=subset(df,missmatch==0)
+df$missmatch=NULL
+remaining_Gross_percentage=sum(!is.na(df$Gross))/3332 # 3332 is the number of valued Gross before removal
+
+```
+
+## 5. Drop `Domestic_Gross` column
+
+`Domestic_Gross` is basically the amount of revenue a movie earned within the US. Understandably, it is very highly correlated with `Gross` and is in fact equal to it for movies that were not released globally. Hence, it should be removed for modeling purposes.
+
+```{r}
+# TODO: Exclude the `Domestic_Gross` column
+df$Domestic_Gross=NULL
+```
+
+## 6. Process `Runtime` column
+
+```{r}
+# TODO: Replace df$Runtime with a numeric column containing the runtime in minutes
+min_numeric=function (x){
+  temp=strsplit(x, " ")
+  if (length(temp[[1]]) == 2 & temp[[1]][2]== "min") {temp2=as.numeric(temp[[1]][1])}
+  else if (length(temp[[1]]) == 2 & temp[[1]][2]== "h") temp2=as.numeric(temp[[1]][1])*60
+  else if (length(temp[[1]]) == 4 ) {temp2=as.numeric(temp[[1]][1])*60+as.numeric(temp[[1]][3])}
+  else {temp2=as.numeric(temp[[1]][1])}
+  return (temp2)
+}
+# convert all df$Runtime to numeric
+df$Runtime=sapply(df$Runtime,min_numeric)
+```
+
+Perform any additional preprocessing steps that you find necessary, such as dealing with missing values or highly correlated columns (feel free to add more code chunks, markdown blocks and plots here as necessary).
+
+```{r}
+# TODO(optional): Additional preprocessing
+
+```
+
+_**Note**: Do NOT convert categorical variables (like `Genre`) into binary columns yet. You will do that later as part of a model improvement task._
+
+## Final preprocessed dataset
+
+Report the dimensions of the preprocessed dataset you will be using for modeling and evaluation, and print all the final column names. (Again, `Domestic_Gross` should not be in this list!)
+
+```{r}
+# TODO: Print the dimensions of the final preprocessed dataset and column names
+# print dimesion of df
+cat("Dataset has", dim(df)[1], "rows and", dim(df)[2], "columns", end="\n", file="")
+# column names
+cat("the column names of df are: ", end="\n", file="")
+colnames(df)
+
+```
+
+# Evaluation Strategy
+
+In each of the tasks described in the next section, you will build a regression model. In order to compare their performance, you will compute the training and test Root Mean Squared Error (RMSE) at different training set sizes.
+
+First, randomly sample 10-20% of the preprocessed dataset and keep that aside as the **test set**. Do not use these rows for training! The remainder of the preprocessed dataset is your **training data**.
+
+Now use the following evaluation procedure for each model:
+
+- Choose a suitable sequence of training set sizes, e.g. 10%, 20%, 30%, ..., 100% (10-20 different sizes should suffice). For each size, sample that many inputs from the training data, train your model, and compute the resulting training and test RMSE.
+- Repeat your training and evaluation at least 10 times at each training set size, and average the RMSE results for stability.
+- Generate a graph of the averaged train and test RMSE values as a function of the train set size (%), with optional error bars.
+
+You can define a helper function that applies this procedure to a given set of features and reuse it.
+
+```{r}
+# define helper functions
+
+# generate train and test df
+set.seed(2017)
+test_rows=sample(nrow(df), as.integer(0.2*nrow(df)))
+test_set=df[test_rows,]
+training_data=df[-test_rows,]
+
+# Choose a suitable sequence of training set sizes, e.g. 10%, 20%, 30%, ..., 100%.
+# generate a function to get ten different samples with 10 different sample size
+samples_df=function (df=training_data, percent=10) {
+  # input: training_data as dataframe
+  # output: a list 10 different samples df with samplesize of 10 -100 % of orignal size
+  
+  samples_10= df[sample(nrow(df), as.integer(percent*nrow(df)/100)),]
+
+  return (samples_10)
+}
+
+
+# For each size, sample that many inputs from the training data, train your model, and compute the resulting training and test RMSE.
+# function for calculating train RMSE from model
+train_RMSE=function(model){
+  # input model
+  # return RMSE
+  res=summary(model)$residuals
+  RMSE=(mean(res*res))^0.5
+  return (RMSE)
+}
+
+# function for calculating test RMSE from model and test dataframe
+test_RMSE=function(model, test_df){
+  # input model, test dataframe
+  # return RMSE of test dataframe
+  Y_hat=predict(model, test_df)
+  Y=test_df$Gross
+  res=Y_hat-Y
+  RMSE=(mean(res[!is.na(res)]*res[!is.na(res)]))^0.5
+  return (RMSE)
+}
+
+
+# Generate a graph of the averaged train and test RMSE values as a function of the train set size (%), with optional error bars.
+
+plot_fn=function(sampleSize_vector=seq(10,100, by=10), mean_RMSE_test_vector, mean_RMSE_train_vector, SD_test_vector, SD_train_vector){
+  # input: vector of sampe size
+  # input: vector of mean RMSE under each sample size for test and training sample
+  # input: vector of mean RMSE under each sample size for test and training sample
+  # output: figure , no return
+  library(ggplot2)
+  df=data.frame(sample_size=sampleSize_vector, 
+                mean_RMSE_test_data=mean_RMSE_test_vector, 
+                mean_RMSE_training_data= mean_RMSE_train_vector,
+                SD_test_vector=SD_test_vector,
+                SD_train_vector=SD_train_vector)
+  print(df)
+  image=ggplot(data=df, aes(x=sample_size, y=mean_RMSE_training_data, color="mean_RMSE_training_data"))+
+    geom_point()+
+    geom_point(data=df,aes(x=sample_size, y=mean_RMSE_test_data, color="mean_RMSE_test_data"))+
+    geom_errorbar(aes(ymin=mean_RMSE_training_data-SD_train_vector,
+                      ymax=mean_RMSE_training_data+SD_train_vector,color="mean_RMSE_training_data"), width=5)+
+    geom_errorbar(aes(ymin=mean_RMSE_test_data-SD_test_vector,
+                      ymax=mean_RMSE_test_data+SD_test_vector,color="mean_RMSE_test_data"), width=5)+
+    theme_bw( )+
+    xlab("sample size (%)")+
+    ylab("RMSE")
+  return (image)
+}
+# generate test_set and training data using function
+
+
+```
+
+
+# Tasks
+
+Each of the following tasks is worth 20 points, for a total of 100 points for this project. Remember to build each model as specified, evaluate it using the strategy outlined above, and plot the training and test errors by training set size (%).
+
+## 1. Numeric variables
+
+Use Linear Regression to predict `Gross` based on available _numeric_ variables. You can choose to include all or a subset of them.
+
+```{r}
+# TODO: Build & evaluate model 1 (numeric variables only)
+
+# calculate average and SD of RMSE for samples of df with different sizes, and repeat ten times for each sample size
+sample_size_vector=seq(10, 100, by=10)
+mean_RMSE_test_vector=vector(mode="numeric", length = 10)
+mean_RMSE_train_vector=vector(mode="numeric", length = 10)
+SD_test_vector=vector(mode="numeric", length = 10)
+SD_train_vector=vector(mode="numeric", length = 10)
+# setseed to make sure the results are consistent, set ten different seeds for 10 different samples
+seed_pool=c(25, 33, 20, 74, 8, 16, 9, 7, 200, 2000)
+j=1
+for(percent in sample_size_vector){
+  # repeat ten times and get RSMD mean and SD
+  RMSE_test_vector=vector(mode="numeric", length = 10)
+  RMSE_train_vector=vector(mode="numeric", length = 10)
+  for (i in 1:10){
+    set.seed(seed_pool[i])
+    sample_df=samples_df(df=training_data, percent=percent)
+    model1=lm(Gross~Year+Runtime+imdbRating+imdbVotes+
+                tomatoMeter+tomatoFresh+tomatoRotten+tomatoUserRating+tomatoUserReviews+Budget, sample_df)
+    # calculate MR
+    RMSE_test_vector[i]=test_RMSE(model=model1, test_df=test_set) 
+    RMSE_train_vector[i]=train_RMSE(model=model1)
+  }
+  mean_RMSE_test_vector[j]=mean(RMSE_test_vector)
+  mean_RMSE_train_vector[j]=mean(RMSE_train_vector)
+  SD_test_vector[j]=sd(RMSE_test_vector)
+  SD_train_vector[j]=sd(RMSE_train_vector)
+  j=j+1
+}
+plot_fn(sampleSize_vector=sample_size_vector, mean_RMSE_test_vector, mean_RMSE_train_vector, SD_test_vector, SD_train_vector)
+
+
+
+```
+
+**Q**: List the numeric variables you used.
+
+**A**: "Year" "Runtime" "imdbRating" "imdbVotes" "tomatoMeter" "tomatoFresh" "tomatoRotten" "tomatoUserRating" "tomatoUserReviews" "Budget" 
+
+**Q**: What is the best mean test RMSE value you observed, and at what training set size?
+
+**A**: The best mean test RMSE value is 95624146, and this value was obtained at sample size of 100%.
+
+
+## 2. Feature transformations
+
+Try to improve the prediction quality from **Task 1** as much as possible by adding feature transformations of the numeric variables. Explore both numeric transformations such as power transforms and non-numeric transformations of the numeric variables like binning (e.g. `is_budget_greater_than_3M`).
+
+```{r}
+# TODO: Build & evaluate model 2 (transformed numeric variables only)
+# non-numeric transformations of budget
+budget_bin_fn=function (x){
+  if (is.na(x)) return ("not avalible")
+  else if (x<6500000) return ("less than 25% quantile")
+  else if (x>=6500000 & x<20000000) return ("25%-50% quantile")
+  else if (x>=20000000 & x < 47750000) return ("50%-75% quantile")
+  else if (x>47750000) return ("lager than 75% quantile")
+  else return ("not avalible")
+}
+# convert bugdge column in test_set and training data
+test_set$Budget_bin=sapply(test_set$Budget, budget_bin_fn)
+training_data$Budget_bin=sapply(training_data$Budget, budget_bin_fn)
+df$Budget_bin=sapply(df$Budget, budget_bin_fn)
+
+sample_size_vector=seq(10, 100, by=10)
+mean_RMSE_test_vector=vector(mode="numeric", length = 10)
+mean_RMSE_train_vector=vector(mode="numeric", length = 10)
+SD_test_vector=vector(mode="numeric", length = 10)
+SD_train_vector=vector(mode="numeric", length = 10)
+j=1
+for(percent in sample_size_vector){
+  # repeat ten times and get RSMD mean and SD
+  RMSE_test_vector=vector(mode="numeric", length = 10)
+  RMSE_train_vector=vector(mode="numeric", length = 10)
+  for (i in 1:10){
+    sample_df=samples_df(df=training_data, percent=percent)
+    #model2=lm(Gross~Year+Runtime+imdbRating+tomatoUserRating+imdbVotes+tomatoUserReviews+
+                # Budget+Budget_bin+tomatoMeter+I(tomatoMeter^2), sample_df)
+    model2=lm(Gross~Year+Runtime+imdbRating+imdbVotes+
+                I(tomatoMeter^2)+tomatoMeter+tomatoFresh+tomatoRotten+tomatoUserRating+tomatoUserReviews+Budget+Budget_bin+
+                I(Budget^2)+I(Budget^3)+I(Budget^4)+I(imdbRating^2)+I(imdbVotes^2)+
+                I(tomatoFresh^2)+I(tomatoRotten^2)+I(tomatoUserRating^2)
+              , sample_df)
+    # calculate MR
+    RMSE_test_vector[i]=test_RMSE(model=model2, test_df=test_set) 
+    RMSE_train_vector[i]=train_RMSE(model=model2)
+  }
+  mean_RMSE_test_vector[j]=mean(RMSE_test_vector)
+  mean_RMSE_train_vector[j]=mean(RMSE_train_vector)
+  SD_test_vector[j]=sd(RMSE_test_vector)
+  SD_train_vector[j]=sd(RMSE_train_vector)
+  j=j+1
+}
+plot_fn(sampleSize_vector=sample_size_vector, mean_RMSE_test_vector, mean_RMSE_train_vector, SD_test_vector, SD_train_vector)
+
+```
+
+**Q**: Explain which transformations you used and why you chose them.
+
+**A**: I did the following transformations: (1) non-numeric transformation of Budget into 5 different "breaks" based on the quantile distribution of numbers in Budget column. I used both Budget and bins of budget in my model. The reason for non-numeric transformation is that the numbers in budget column covere a very broad range. These values could not be linearly related the Gross. (2) I used power transfermation of tomatoMeter, tomatoFresh, tomatoRotten, tomatoUserrating, imdbRating and imdbVotes columns [I(tomatoMeter^2)+....+I(imdbRating^2)+I(imdbVotes^2)+ I(tomatoFresh^2)+I(tomatoRotten^2)+I(tomatoUserRating^2)]. I think these columns have a relatively small range of numbers, while Gross have a very big range. The relationships between Gross and these columns are non-linear. Thus, power transfermation of tomatoMeter, tomatoFresh, tomatoRotten, tomatoUserrating, imdbRating and imdbVotes could improve the model. (3) I performed power transformation of budget because the budget and Gross are non-linearly corelated [I(Budget^2)+I(Budget^3)+I(Budget^4)].
+
+**Q**: How did the RMSE change compared to Task 1?
+
+**A**: The mean of RMSE of the testing data and training data reduced after apply these transformations. The best mean test RMSE value is 93541650, and this value was obtained at sample size of 100%. This value is smaller than the best test RMSE before transformation (95624146 with 100% sample size). The RMSE of the training data after apply these transformation are also reduced compared with that without transformation.
+
+
+## 3. Non-numeric variables
+
+Write code that converts genre, actors, directors, and other categorical variables to columns that can be used for regression (e.g. binary columns as you did in Project 1). Also process variables such as awards into more useful columns (again, like you did in Project 1). Now use these converted columns only to build your next model.
+
+```{r}
+# TODO: Build & evaluate model 3 (converted non-numeric variables only)
+
+######################################################################
+#
+# generate binary vectors for genre column
+#
+######################################################################
+# split words by ", "
+slipt=function (x){
+  return (strsplit(x, ", "))
+}
+df$Genre1=sapply(df$Genre,slipt)
+# create dictionary containing all unique name of Genre
+Genre1=array()
+for(i in c(1:length(df$Genre1))){
+  Genre1=unique(c(Genre1,df$Genre1[[i]]))
+}
+# remove "N/A" and NA from Genre1
+Genre_dict=Genre1[Genre1!="N/A"&!is.na(Genre1)]
+int_Genre_dict=as.integer(Genre_dict)
+# add another column named df$Genre_binary, which only contains binary vector of all binary vector
+for(i in c(1:length(df$Genre1))) {
+  # check the element in each row of df$Genre1 with Genre_dict, if exist, label 1, else label 0
+  df$Genre_binary[i]=list(int_Genre_dict)
+  names(df$Genre_binary[[i]])=Genre_dict
+  for (j in c(1:length(Genre_dict))){
+    if (is.element(Genre_dict[j], df$Genre1[[i]])){
+      df$Genre_binary[[i]][j]=1
+      }
+    else df$Genre_binary[[i]][j]=0
+    }
+}
+# df$Genre=NULL
+# Select movies from top 10 most common genres and plot their relative proportions
+# calculate the number of movies in each genres and save the data into an vector named sun_genres
+sum_genres=vector(mode="integer",length=length(df$Genre_binary[[1]]))
+names(sum_genres)=names(df$Genre_binary[[1]])
+for (i in c(1:length(df$Genre_binary))){
+  sum_genres=sum_genres+df$Genre_binary[[i]]
+}
+# sort sum_genres
+sum_genres=sort(sum_genres, decreasing = TRUE)
+top10_genres=sum_genres[c(1:10)]
+
+# insert to columns with top 10 genre as names
+df$Drama=0 
+df$Comedy=0 
+df$Action=0  
+df$Adventure=0  
+df$Romance=0  
+df$Crime=0  
+df$Thriller=0 
+df$Horror=0  
+df$Mystery=0  
+df$Fantasy=0  
+# label the movie which have corresponding genres
+for (i in c(1:length(df$Runtime))){
+  if(df$Genre_binary[[i]]["Drama"]==1) df$Drama[i]=1
+  if(df$Genre_binary[[i]]["Comedy"]==1) df$Comedy[i]=1
+  if(df$Genre_binary[[i]]["Action"]==1) df$Action[i]=1
+  if(df$Genre_binary[[i]]["Adventure"]==1) df$Adventure[i]=1
+  if(df$Genre_binary[[i]]["Romance"]==1) df$Romance[i]=1
+  if(df$Genre_binary[[i]]["Crime"]==1) df$Crime[i]=1
+  if(df$Genre_binary[[i]]["Thriller"]==1) df$Thriller[i]=1
+  if(df$Genre_binary[[i]]["Horror"]==1) df$Horror[i]=1
+  if(df$Genre_binary[[i]]["Mystery"]==1) df$Mystery[i]=1
+  if(df$Genre_binary[[i]]["Fantasy"]==1) df$Fantasy[i]=1
+}
+
+
+######################################################################
+#
+# generate binary vectors for actor column
+#
+######################################################################
+# define a function to split different actors from the same row
+slipt=function (x){
+  return (strsplit(gsub(" ", "", x), ","))
+}
+df$Actors1=sapply(df$Actors ,slipt)
+# create dictionary containing all unique name of Genre
+Actors1=array()
+for(i in c(1:length(df$Actors1))){
+  Actors1=c(Actors1,df$Actors1[[i]])
+}
+# show the top 20 most productive actors
+top20_actors=sort(table(Actors1),decreasing = TRUE)[1:20]
+top20_actors_names=names(top20_actors)
+for(actor in top20_actors_names){
+  df[actor]=0
+  for (i in c(1:length(df$Actors1))) {
+      if (is.element(actor, df$Actors1[[i]])){
+      df[actor][i,]=1
+      }    
+  }
+}
+
+
+######################################################################
+#
+# generate binary vectors for director column
+#
+######################################################################
+
+slipt=function (x){
+  return (strsplit(gsub(" ", "", x), ","))
+}
+df$Director1=sapply(df$Director,slipt)
+# create dictionary containing all unique name of Genre
+Director1=array()
+for(i in c(1:length(df$Director1))){
+  Director1=c(Director1,df$Director1[[i]])
+}
+# show the top 20 most productive directors
+top20_Director=sort(table(Director1),decreasing = TRUE)[1:21]
+top20_Director_names=names(top20_Director)
+for(Director in top20_Director_names){
+  df[Director]=0
+  for (i in c(1:length(df$Director1))) {
+      if (is.element(Director, df$Director1[[i]])){
+      df[Director][i,]=1
+      }    
+  }
+}
+
+########################################################################
+#
+# dealing with awards column to number of win and num of nomi
+#
+#########################################################################
+
+# split the words in each row of df$Awards using strsplit(x,patten )[[1]], saved the vector in a new 
+# column called df$Awards_list
+Split_award=function (x){
+  return(strsplit(x,"\\,|\\ |\\.|\\&"))
+}
+df$Awards_list=sapply(df$Awards, Split_award)
+# check all possible expression of wins and nominations
+different_win_nominations=vector()
+for (vect in df$Awards_list)
+  different_win_nominations=unique(c(different_win_nominations, unlist(vect)))
+# calculate how many wins in each role and then saved the total wins ("win""wins""Won" ) into a new column df$Num_win
+total_win=function(x){
+  num_win=0
+  x=unlist(x)
+  if(is.element("win", x)) {
+    position=which(x=="win")
+    num_win=num_win+as.integer(x[position-1])
+  }
+  if(is.element("wins", x)) {
+    position=which(x=="wins")
+    num_win=num_win+as.integer(x[position-1])
+  }
+  if(is.element("Won", x)) {
+    position=which(x=="Won")
+    num_win=num_win+as.integer(x[position+1])
+  }
+  return(num_win)
+}
+df$Num_win=sapply (df$Awards_list, total_win)
+
+# calculate how many nominations in each role and then saved the 
+# total nominations ("nomination""nominations""Nominated" ) into a new column df$Num_nomi
+total_nomi=function(x){
+  num_nomi=0
+  x=unlist(x)
+  if(is.element("nomination", x)) {
+    position=which(x=="nomination")
+    num_nomi=num_nomi+as.integer(x[position-1])
+  }
+  if(is.element("nominations", x)) {
+    position=which(x=="nominations")
+    num_nomi=num_nomi+as.integer(x[position-1])
+  }
+  if(is.element("Nominated", x)) {
+    position=which(x=="Nominated")
+    num_nomi=num_nomi+as.integer(x[position+2])
+  }
+  return(num_nomi)
+}
+df$Num_nomi=sapply (df$Awards_list, total_nomi)
+df$Awards_list=NULL
+num_row_win=nrow(subset(df,Num_win != 0))
+num_row_nomination=nrow(subset(df,Num_nomi != 0))
+paste(num_row_win, "rows had valid/non-zero wins")
+paste(num_row_nomination, "rows had valid/non-zero nominations")
+
+########################################################################
+#
+# convert country column into binary columns
+#
+#########################################################################
+
+slipt=function (x){
+  return (strsplit(gsub(" ", "", x), ","))
+}
+df$Country1=sapply(df$Country ,slipt)
+# create dictionary containing all unique name of Genre
+Country1=array()
+for(i in c(1:length(df$Country1))){
+  Country1=c(Country1,df$Country1[[i]])
+}
+# show the top 20 most productive actors
+top20_countrys=sort(table(Country1),decreasing = TRUE)[1:20]
+top20_countrys_names=names(top20_countrys)
+for(country in top20_countrys_names){
+  df[country]=0
+  for (i in c(1:length(df$Country1))) {
+      if (is.element(country, df$Country1[[i]])){
+      df[country][i,]=1
+      }    
+  }
+}
+
+########################################################################
+#
+# convert production column into binary columns
+#
+#########################################################################
+Top20_companies=names(sort(table(df$Production), decreasing = TRUE)[c(1:21)])
+Top20_companies=gsub(" ", "", Top20_companies) # remove space inside of the elments
+
+for(company in Top20_companies){
+  df[company]=0
+  for (i in c(1:length(df$Production))) {
+      if (is.element(company, df$Production[[i]])){
+      df[company][i,]=1
+      }    
+  }
+}
+df$Fox=df$`20thCenturyFox`
+
+#############################
+# generate new test_set and training_data based on the new df
+set.seed(2017)
+test_rows=sample(nrow(df), as.integer(0.2*nrow(df)))
+test_set=df[test_rows,]
+training_data=df[-test_rows,]
+
+############################
+#
+# build model3
+#
+############################
+
+# calculate average and SD of RMSE for samples of df with different sizes, and repeat ten times for each sample size
+sample_size_vector=seq(10, 100, by=10)
+mean_RMSE_test_vector=vector(mode="numeric", length = 10)
+mean_RMSE_train_vector=vector(mode="numeric", length = 10)
+SD_test_vector=vector(mode="numeric", length = 10)
+SD_train_vector=vector(mode="numeric", length = 10)
+# setseed to make sure the results are consistent, set ten different seeds for 10 different samples
+seed_pool=c(25, 33, 20, 74, 8, 16, 9, 7, 200, 2000)
+j=1
+for(percent in sample_size_vector){
+  # repeat ten times and get RSMD mean and SD
+  RMSE_test_vector=vector(mode="numeric", length = 10)
+  RMSE_train_vector=vector(mode="numeric", length = 10)
+  for (i in 1:10){
+    set.seed(seed_pool[i])
+    sample_df=samples_df(df=training_data, percent=percent)
+    
+    model3=lm(Gross~Drama+Comedy+Action+Adventure+Romance+Crime+Thriller+Horror+Mystery+Fantasy+
+                RobertDeNiro+MarkWahlberg+SamuelL.Jackson+AdamSandler+BenStiller+MattDamon+OwenWilson+
+                BruceWillis+JohnnyDepp+GeorgeClooney+GerardButler+JackBlack+JasonStatham+MatthewMcConaughey+
+                NicolasCage+WillFerrell+CameronDiaz+ChristianBale+LiamNeeson+NicoleKidman+
+                StevenSoderbergh+ClintEastwood+RidleyScott+WoodyAllen+ShawnLevy+StevenSpielberg+EthanCoen+
+                JoelCoen+RobertRodriguez+RonHoward+PeterFarrelly+AdamShankman+AntoineFuqua+BobbyFarrelly+BrettRatner+
+                ChristopherNolan+GoreVerbinski+KevinSmith+M.NightShyamalan+MichaelBay+
+                Num_win+Num_nomi+
+                WarnerBros.Pictures+UniversalPictures+ParamountPictures+SonyPictures+
+                SonyPicturesClassics+NewLineCinema+WaltDisneyPictures+ColumbiaPictures+FocusFeatures+MiramaxFilms+
+                LionsgateFilms+WarnerBros.+MGM+TheWeinsteinCompany+Lionsgate+FoxSearchlight+FoxSearchlightPictures+
+                MagnoliaPictures+SummitEntertainment+Fox+
+                USA+UK+Germany+Canada+France+Australia+Spain+India+Italy+Japan+China+Ireland+HongKong+NewZealand+CzechRepublic+
+                Switzerland+Mexico+SouthAfrica+UnitedArabEmirates+Belgium,
+                sample_df)
+    
+    # calculate MR
+    RMSE_test_vector[i]=test_RMSE(model=model3, test_df=test_set) 
+    RMSE_train_vector[i]=train_RMSE(model=model3)
+  }
+  mean_RMSE_test_vector[j]=mean(RMSE_test_vector)
+  mean_RMSE_train_vector[j]=mean(RMSE_train_vector)
+  SD_test_vector[j]=sd(RMSE_test_vector)
+  SD_train_vector[j]=sd(RMSE_train_vector)
+  j=j+1
+}
+plot_fn(sampleSize_vector=sample_size_vector, mean_RMSE_test_vector, mean_RMSE_train_vector, SD_test_vector, SD_train_vector)
+
+
+```
+
+**Q**: Explain which categorical variables you used, and how you encoded them into features.
+
+**A**: I used Genre, Director, Actors, Country, Awards and Production to build model. Genre, Director, Actors, Country, Production were converted into binary columns. Genre: first split elements in each row of Genre column by ", ", then find the top 10 most popular genres and genate ten columns with each column stands for one of the ten genre. Put 1 in that rows if the movies belong to that genre and put 0 in the rows uf the movies do not belong to that row. I did the similar manipulations to other columns such as Director, Actors, Country, Production. I first find top 30 most popular items from each orginal column, and generate 20 different binary columns from each orginal column. 1 stands for the presence of item in the same row of the original column and 0 stands for the absence of item in the same row of the orginal column. 
+
+
+**Q**: What is the best mean test RMSE value you observed, and at what training set size? How does this compare with Task 2?
+
+**A**: The best mean test RMSE value is 136051718, and that model was generated at 100% sample size of training set. This RMSE is about 1.4 times larger than the RMSE in task 2 (93541650).
+
+
+## 4. Numeric and categorical variables
+
+Try to improve the prediction quality as much as possible by using both numeric and non-numeric variables from **Tasks 2 & 3**.
+
+```{r}
+# TODO: Build & evaluate model 4 (numeric & converted non-numeric variables)
+# calculate average and SD of RMSE for samples of df with different sizes, and repeat ten times for each sample size
+sample_size_vector=seq(10, 100, by=10)
+mean_RMSE_test_vector=vector(mode="numeric", length = 10)
+mean_RMSE_train_vector=vector(mode="numeric", length = 10)
+SD_test_vector=vector(mode="numeric", length = 10)
+SD_train_vector=vector(mode="numeric", length = 10)
+# setseed to make sure the results are consistent, set ten different seeds for 10 different samples
+seed_pool=c(25, 33, 20, 74, 8, 16, 9, 7, 200, 2000)
+j=1
+for(percent in sample_size_vector){
+  # repeat ten times and get RSMD mean and SD
+  RMSE_test_vector=vector(mode="numeric", length = 10)
+  RMSE_train_vector=vector(mode="numeric", length = 10)
+  for (i in 1:10){
+    set.seed(seed_pool[i])
+    sample_df=samples_df(df=training_data, percent=percent)
+    
+    model4=lm(Gross~Year+Runtime+imdbRating+imdbVotes+
+                I(tomatoMeter^2)+tomatoMeter+tomatoFresh+tomatoRotten+tomatoUserRating+tomatoUserReviews+Budget+Budget_bin+
+                I(Budget^2)+I(Budget^3)+I(Budget^4)+I(imdbRating^2)+I(imdbVotes^2)+
+                I(tomatoFresh^2)+I(tomatoRotten^2)+I(tomatoUserRating^2)+
+                Drama+Comedy+Action+Adventure+Romance+Crime+Thriller+Horror+Mystery+Fantasy+
+                RobertDeNiro+MarkWahlberg+SamuelL.Jackson+AdamSandler+BenStiller+MattDamon+OwenWilson+
+                BruceWillis+JohnnyDepp+GeorgeClooney+GerardButler+JackBlack+JasonStatham+MatthewMcConaughey+
+                NicolasCage+WillFerrell+CameronDiaz+ChristianBale+LiamNeeson+NicoleKidman+
+                StevenSoderbergh+ClintEastwood+RidleyScott+WoodyAllen+ShawnLevy+StevenSpielberg+EthanCoen+
+                JoelCoen+RobertRodriguez+RonHoward+PeterFarrelly+AdamShankman+AntoineFuqua+BobbyFarrelly+BrettRatner+
+                ChristopherNolan+GoreVerbinski+KevinSmith+M.NightShyamalan+MichaelBay+
+                Num_win+Num_nomi+
+                WarnerBros.Pictures+UniversalPictures+ParamountPictures+SonyPictures+
+                SonyPicturesClassics+NewLineCinema+WaltDisneyPictures+ColumbiaPictures+FocusFeatures+MiramaxFilms+
+                LionsgateFilms+WarnerBros.+MGM+TheWeinsteinCompany+Lionsgate+FoxSearchlight+FoxSearchlightPictures+
+                MagnoliaPictures+SummitEntertainment+Fox+
+                USA+UK+Germany+Canada+France+Australia+Spain+India+Italy+Japan+China+Ireland+HongKong+NewZealand+CzechRepublic+
+                Switzerland+Mexico+SouthAfrica+UnitedArabEmirates+Belgium
+              ,sample_df)
+    
+    
+    # calculate MR
+    RMSE_test_vector[i]=test_RMSE(model=model4, test_df=test_set) 
+    RMSE_train_vector[i]=train_RMSE(model=model4)
+  }
+  mean_RMSE_test_vector[j]=mean(RMSE_test_vector)
+  mean_RMSE_train_vector[j]=mean(RMSE_train_vector)
+  SD_test_vector[j]=sd(RMSE_test_vector)
+  SD_train_vector[j]=sd(RMSE_train_vector)
+  j=j+1
+}
+plot_fn(sampleSize_vector=sample_size_vector, mean_RMSE_test_vector, mean_RMSE_train_vector, SD_test_vector, SD_train_vector)
+```
+
+**Q**: Compare the observed RMSE with Tasks 2 & 3.
+
+**A**: I combined numeric columns without tranformation and binary columns for the prediction. The best best mean testing RMSE value is 91902203 and that model was generated at 100% sample size of training set. The testing RMSE in task 4 (91902203) is smaller than the RMSE in task2 (93541650) and task3 (136051718). The RMSE values for the training dataset in task 4 is also smaller than that of task2 and task3.
+
+## 5. Additional features
+
+Now try creating additional features such as interactions (e.g. `is_genre_comedy` x `is_budget_greater_than_3M`) or deeper analysis of complex variables (e.g. text analysis of full-text columns like `Plot`).
+
+```{r}
+# TODO: Build & evaluate model 5 (numeric, non-numeric and additional features)
+
+###############################################
+#
+# generate a new column called relased month, group month in three different seasons:
+# "cold season", "summer season", and "winter season"
+#
+###############################################
+month_extact_fn=function (x) {
+  x=as.character(x)
+  if (is.na(x)) return (as.character(NA))
+  #else if (x=="NA") return (as.character("not avaible"))
+  else if (!is.na(x)) {
+    temp=as.character(strsplit(x, "-")[[1]][2])
+    if (temp %in% c("01", "02", "03", "04", "05", "09")) temp2="cold season"
+    if (temp %in% c("06","07", "08")) temp2="summer season"
+    if (temp %in% c("10","11", "12")) temp2="winter season"
+    return(temp2)
+    }
+  else return (as.character(NA))
+}
+df$month=sapply(df$Released, month_extact_fn)
+
+
+##################################################
+#
+# modify Rated column for the analysis, not good at all
+#
+###################################################
+rated_fn=function(x){
+  if (x %in% c("N/A", "NC-17", "TV-14", "TV-G", "TV-PG")) return (NA)
+  else if (x %in% c("NOT RATED", "UNRATED")) return ("UNRATED")
+  else return(x)
+}
+df$Rated_new=sapply(df$Rated, rated_fn)
+
+#################################################
+#
+# modify tomatoImage column to convert N/A to NA
+# 
+#################################################
+tomatoimage_fn=function (x){
+  if (x=="N/A") return (NA)
+  else return (x)
+}
+df$tomatoImage_new=sapply(df$tomatoImage, tomatoimage_fn)
+
+##################################################
+#
+# add language number into the model
+#
+##################################################
+
+language_count=function(x){
+  return (length(strsplit(x, ", ")[[1]]))
+}
+df$language_number=sapply(df$Language, language_count)
+
+
+
+#############################
+# generate new test_set and training_data based on the new df
+set.seed(2017)
+test_rows=sample(nrow(df), as.integer(0.2*nrow(df)))
+test_set=df[test_rows,]
+training_data=df[-test_rows,]
+
+# calculate average and SD of RMSE for samples of df with different sizes, and repeat ten times for each sample size
+sample_size_vector=seq(10, 100, by=10)
+mean_RMSE_test_vector=vector(mode="numeric", length = 10)
+mean_RMSE_train_vector=vector(mode="numeric", length = 10)
+SD_test_vector=vector(mode="numeric", length = 10)
+SD_train_vector=vector(mode="numeric", length = 10)
+# setseed to make sure the results are consistent, set ten different seeds for 10 different samples
+seed_pool=c(25, 33, 20, 74, 8, 16, 9, 7, 200, 2000)
+j=1
+for(percent in sample_size_vector){
+  # repeat ten times and get RSMD mean and SD
+  RMSE_test_vector=vector(mode="numeric", length = 10)
+  RMSE_train_vector=vector(mode="numeric", length = 10)
+  for (i in 1:10){
+    set.seed(seed_pool[i])
+    sample_df=samples_df(df=training_data, percent=percent)
+    
+    model5=lm(Gross~Year+Runtime+imdbRating*imdbVotes+ # change imdbRating*imdbVotes
+                # transform tomato ranking related columns by interaction
+                I(tomatoMeter^2)+(tomatoMeter+tomatoFresh+tomatoRotten+tomatoUserRating+tomatoUserReviews)^2+
+                Budget+Budget_bin++I(Budget^2)+I(Budget^3)+I(Budget^4)+
+                I(imdbRating^2)+I(imdbVotes^2)+
+                I(tomatoFresh^2)+I(tomatoRotten^2)+I(tomatoUserRating^2)+
+                Drama+Comedy+Action+Adventure+Romance+Crime+Thriller+Horror+Mystery+Fantasy+
+                RobertDeNiro+MarkWahlberg+SamuelL.Jackson+AdamSandler+BenStiller+MattDamon+OwenWilson+
+                BruceWillis+JohnnyDepp+GeorgeClooney+GerardButler+JackBlack+JasonStatham+MatthewMcConaughey+
+                NicolasCage+WillFerrell+CameronDiaz+ChristianBale+LiamNeeson+NicoleKidman+
+                StevenSoderbergh+ClintEastwood+RidleyScott+WoodyAllen+ShawnLevy+StevenSpielberg+EthanCoen+
+                JoelCoen+RobertRodriguez+RonHoward+PeterFarrelly+AdamShankman+AntoineFuqua+BobbyFarrelly+BrettRatner+
+                ChristopherNolan+GoreVerbinski+KevinSmith+M.NightShyamalan+MichaelBay+
+                Num_win+Num_nomi+
+                WarnerBros.Pictures+UniversalPictures+ParamountPictures+SonyPictures+
+                SonyPicturesClassics+NewLineCinema+WaltDisneyPictures+ColumbiaPictures+FocusFeatures+MiramaxFilms+
+                LionsgateFilms+WarnerBros.+MGM+TheWeinsteinCompany+Lionsgate+FoxSearchlight+FoxSearchlightPictures+
+                MagnoliaPictures+SummitEntertainment+Fox+
+                USA+UK+Germany+Canada+France+Australia+Spain+India+Italy+Japan+China+Ireland+HongKong+NewZealand+CzechRepublic+
+                Switzerland+Mexico+SouthAfrica+UnitedArabEmirates+Belgium+
+                month+language_number+tomatoImage_new
+              ,sample_df)
+    
+    # calculate RMSE
+    RMSE_test_vector[i]=test_RMSE(model=model5, test_df=test_set) 
+    RMSE_train_vector[i]=train_RMSE(model=model5)
+  }
+  mean_RMSE_test_vector[j]=mean(RMSE_test_vector)
+  mean_RMSE_train_vector[j]=mean(RMSE_train_vector)
+  SD_test_vector[j]=sd(RMSE_test_vector)
+  SD_train_vector[j]=sd(RMSE_train_vector)
+  j=j+1
+}
+plot_fn(sampleSize_vector=sample_size_vector, mean_RMSE_test_vector, mean_RMSE_train_vector, SD_test_vector, SD_train_vector)
+```
+
+```
+
+**Q**: Explain what new features you designed and why you chose them.
+
+**A**: (1) I used all the posible products of tomatoMeter, tomatoFresh, tomatoRotten, tomatoUserRating and tomatoUserReviews [(tomatoMeter+tomatoFresh+tomatoRotten+tomatoUserRating+tomatoUserReviews)^2]. The reason for me to apply this transformation is that all these numbers are related with rotten tomatoes rankings and these columns could have some relationship between each other.
+(2) Similarly, I used imdbRating*imdbVotes to generate model instead of using imdbRating+imdbVotes in task 2,4. The reason for me to apply such transfermation is that imdbRating and imdbVotes are related.
+(3) I extracted month of movies from column released. The I grouped month into four categories: Jan-May and Sep, Jun-Aug, Oct-Dec, and NA. I added these month features in the model because I think the bese movies are released in the summer and winter season. 
+(4) I counted the number of languages for each movie and then add this feature into model5. I think popular movie could be translated in mutiple languages
+(5) I added the column of tomatoImages to be model. This is because the tomatoImages is defined based on the published opinions of hundreds of film critics and tomatoImages must be related with the quality of the movie.
+
+
+**Q**: Comment on the final RMSE values you obtained, and what you learned through the course of this project.
+
+**A**: The final RMSE for testing data is 87038705, which is much smaller than the testing RMSE in task 1,2,3 and 4. Model5 also have smallest RMSE for training data compared with models in task 1,2,3 and 4.  
+This is an interesting project. I learned how to predict Gross based on other features from these movies by regression models using R build-in function lm(). Model 1 is a linear model. It is easy to perform but quit restrict by the linear properties. Because some of the feature of the movies are not linearly related with Gross. Transfermation is helpful to imporve the quality of the model. In task 2, I used power transfermation of several features of movie, and non-numerical transformation of budget. Such transformation are helpful to improve the model. In addition, we experiences to build model using binary convertion of non-numeric column, such as Genre, actors, directs, countris, ect. Using binary convertion of non-numeric columns prodict Gross of movies poorly (task3). However, if I build the model using both numeric and non-numeric features, the quality of the model can be significantly improved. As shown in task4, the model built based on both numeric and non-numeric features have the best mean testing-data RMSE value of 87038705, which is smaller than the best mean testing-data RMSE value of models built based on numeric features only (93541650) or non-numeric features only (136051718). At last, using additional transfermation, such as interactions (tomatoMeter+tomatoFresh+tomatoRotten+tomatoUserRating+tomatoUserReviews)^2 can further improve the model. 
+
+
+
+
