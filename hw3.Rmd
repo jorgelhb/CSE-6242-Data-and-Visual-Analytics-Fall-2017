@@ -1,0 +1,529 @@
+---
+
+title: "hw3"
+
+date: "October 31, 2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Data
+
+Download: mnist.zip
+
+(Available from the T-Square course site under Resources > Homework 3.)
+
+Unzip the archive; it should have 2 CSV files inside it:
+
+mnist/
+- mnist_test.csv
+- mnist_train.csv
+Each CSV file contains <785 rows x n columns>, where n is the number of sample images in the file. Each column represents one 28?28 image of a digit stacked into a 784 length vector followed by the class label (0, 1, 3 or 5).
+
+We have chosen a subset of the original MNIST dataset, where the images of only four digits have been included (0, 1, 3 and 5). As a further simplification, we will only attempt binary classification in this assignment. You will need to separate the data into two classes for your training and testing: 0, 1 samples and 3, 5 samples. You will then build two models - one to distinguish between 0 and 1, and another to distinguish between 3 and 5.
+
+############################
+Problems
+
+1. Data Preprocessing [20 points]
+
+Carry out the following steps to prepare the data for modeling:
+
+Read mnist_train.csv and mnist_test.csv separately.
+Partition the training set for classification of 0, 1 and 3, 5 classes based on the class label (last row, 785): train_0_1 (should have all training samples with label 0 or 1), train_3_5 (label 3 or 5).
+Do the same for the test set: test_0_1, test_3_5. Print the dimensions of each partition to check how many samples you have.
+Separate the true class label from all the partitions created (remove row 785 from the actual image data and store it as a separate vector).
+You will finally have two sets of image data and their corresponding true labels:
+For classification of digits 0, 1:
+Image data: (train_data_0_1, test_data_0_1)
+True labels: (train_labels_0_1, test_labels_0_1)
+For classification of digits 3, 5:
+Image data: (train_data_3_5, test_data_3_5)
+True labels: (train_labels_3_5, test_labels_3_5)
+Visualize 1 image from each class to ensure you have read in the data correctly. So you should show 4 images, with labels 0, 1, 3 and 5.
+Notes:
+
+There is no header row in the data; set header=FALSE when reading, e.g.:
+train <- read.csv("mnist/mnist_train.csv", header=FALSE)
+You need to convert the 1D image data into 2D for visualization. To do that, you can cast it into a matrix and specify the number of rows/columns.
+To plot 2D data, you can use the image() function with col=gray(0:255/255).
+Digits should be upright, and not mirrored/rotated. The image() function expects a weird ordering (see this article for one possible remedy).
+Submit:
+
+Report: 4 sample images, one from each class, along with their class labels to demonstrate you've read the data correctly.
+Code: All the code you used to read in, preprocess and plot the data.
+##########################
+```{r}
+# open mnist_test.csv and mnist_train.csv
+dir=getwd()
+mnist_test = read.csv(paste(dir,"/mnist/mnist_test.csv", sep=""), header=FALSE)
+mnist_train = read.csv(paste(dir,"/mnist/mnist_train.csv", sep=""), header=FALSE)
+
+# Partition the training set for classification of 0, 1 and 3, 5 classes based on the class 
+# label (last row, 785): train_0_1 (should have all training samples with label 0 or 1), 
+# train_3_5 (label 3 or 5).
+train_0_1=t(subset(t(mnist_train), t(mnist_train)[, 785]==0 | t(mnist_train)[, 785]==1))
+train_3_5=t(subset(t(mnist_train), t(mnist_train)[, 785]==3 | t(mnist_train)[, 785]==5))
+
+# Do the same for the test set: test_0_1, test_3_5.
+
+test_0_1=t(subset(t(mnist_test), t(mnist_test)[, 785]==0 | t(mnist_test)[, 785]==1))
+test_3_5=t(subset(t(mnist_test), t(mnist_test)[, 785]==3 | t(mnist_test)[, 785]==5))
+# Print the dimensions of each partition to check how many samples you have
+print("the dimension of train_0_1 are:")
+dim(train_0_1)
+print("the dimension of train_3_5 are:")
+dim(train_3_5)
+print("the dimension of test_0_1 are:")
+dim(test_0_1)
+print("the dimension of test_3_5 are:")
+dim(test_3_5)
+
+# Separate the true class label from all the partitions created (remove
+# row 785 from the actual image data and store it as a separate vector).
+# For classification of digits 0, 1:
+train_data_0_1=train_0_1[c(1:784),]
+test_data_0_1=test_0_1[c(1:784),]
+train_labels_0_1=train_0_1[785,]
+test_labels_0_1=test_0_1[785,]
+
+# For classification of digits 3, 5:
+train_data_3_5=train_3_5[c(1:784),]
+test_data_3_5=test_3_5[c(1:784),]
+train_labels_3_5=train_3_5[785,]
+test_labels_3_5=test_3_5[785,]
+
+# Visualize 1 image from each class to ensure you have read in the data correctly. 
+# So you should show 4 images, with labels 0, 1, 3 and 5.
+###############################################################################
+# this part is not necessary
+# train_data_0=t(subset(t(mnist_train), t(mnist_train)[, 785]==0))[c(1:784),]
+# train_data_1=t(subset(t(mnist_train), t(mnist_train)[, 785]==1))[c(1:784),]
+# train_data_3=t(subset(t(mnist_train), t(mnist_train)[, 785]==3))[c(1:784),]
+# train_data_5=t(subset(t(mnist_train), t(mnist_train)[, 785]==5))[c(1:784),]
+###############################################################################
+rotate <- function(x) t(apply(x, 2, rev))
+image(rotate(matrix(data=train_data_0_1[ , 1],ncol=28,nrow=28)),col=gray(0:255/255),
+      main="sample image from train_data_0_1")
+image(rotate(matrix(data=test_data_0_1[ , 2007],ncol=28,nrow=28)),col=gray(0:255/255), 
+      main="sample image from test_data_0_1")
+image(rotate(matrix(train_data_3_5[ , 1],ncol=28,nrow=28)),col=gray(0:255/255),
+      main="sample image from train_data_3_5")
+image(rotate(matrix(test_data_3_5[ , 1900],ncol=28,nrow=28)),col=gray(0:255/255),
+      main="sample image from test_data_3_5")
+
+```
+Answer: The dimension of train_0_1 are: 785 12665
+The dimension of train_3_5 are: 785 11552
+The dimension of test_0_1 are: 785 2115
+The dimension of test_3_5 are: 785 1902
+
+
+
+3. Implementation [20 points]
+
+Implement Logistic Regression in R using Stochastic Gradient Descent.
+
+Write the following functions using the specified signatures:
+
+
+train(data, labels, alpha): Train a Logistic Regression model.
+Inputs:
+data: matrix or dataframe containing the input features 
+labels: vector containing the corresponding labels 
+alpha: learning rate hyperparameter 
+Output:
+theta: vector of model parameters  that minimizes the logistic regression loss 
+
+
+predict(theta, data): Predict labels for given data.
+Inputs:
+theta: vector of model parameters as returned by train()
+data: matrix or dataframe containing the input features
+Output:
+labels: vector containing predicted labels 
+```{r}
+#########################################################################################
+# train(data, labels, alpha): Train a Logistic Regression model.
+# Inputs:
+# data: matrix or dataframe containing the input features 
+# labels: vector containing the corresponding labels 
+# alpha: learning rate hyperparameter, I assigned a random value between 0 and 1 
+# for alphain my equation, 
+# Output:
+# theta: vector of model parameters  that minimizes the logistic regression loss 
+#########################################################################################
+
+
+train=function(data, labels, alpha=runif(n=1, min = 0, max = 1)){
+  # convert all the 0 and 3 to be -1 and convert all  of the 1 and 5 in labels to be 1
+  binary_covert=function (x){
+    if (x==0 |x==3) {temp=-1}
+    else {temp=1}
+    return(temp)
+  }
+  binary_labels=sapply(labels, binary_covert)
+
+  # gernerate a theta with the the same dimension as x, give random values to each element 
+  # in  theta 
+  # set a seed so that the results from random are the same, for real testing
+  # this step can be removed
+  
+  theta=runif(n=nrow(data), min = 0, max = 1)
+  # SGD
+
+  loop_counter=1
+  threshold=1000
+  while (threshold>0.0001){
+    # here data is a dataframe such as train_data_0_1, each column stand for a
+    # seperate vector with 784 dimensions
+    # randomly pick 100 columns from data and then get x and y from data and optimize theta
+    random_col=sample(ncol(data), 1000, replace = TRUE)
+    sum_update=0
+    for(colu in random_col){
+      x=data[,colu]
+      y=as.numeric(binary_labels[colu])
+      # introduce bias term (1) to the inner product
+      inerProduct=as.numeric(x%*%theta)+1
+      theta=theta-alpha*(y*exp(y*inerProduct)/(1+exp(y*inerProduct)))*x
+      sum_update=sum_update+alpha*(y*exp(y*inerProduct)/(1+exp(y*inerProduct)))*x
+    }
+    # check update of dimension of theta every 100 times, if the sum_update is 
+    # smaller than 0.001, break while loop and return theta
+    threshold=abs(mean(sum_update))
+  }
+  loop_counter=loop_counter+1
+  return (theta)
+}
+# test my function using train_data_0_1, labels=train_labels_0_1, alpha=0.1
+final_theta=train(data=train_data_0_1, labels=train_labels_0_1, alpha=0.1)
+
+#####################################################################
+# predict(theta, data): Predict labels for given data.
+# Inputs:
+# theta: vector of model parameters as returned by train()
+# data: matrix or dataframe containing the input features
+# Output:
+# labels: vector containing predicted labels 
+#####################################################################
+predict=function (theta=final_theta, data){
+  predicted_labels=c()
+  # if use 0_1 dataset as input, return predicted labels containing 0 or 1
+  if (identical(data,train_data_0_1)|identical(data,test_data_0_1)){
+    for (column in c(1:ncol(data))){
+      probability=1/(1+exp(theta%*%data[,column]+1))
+      if (probability>=0.5) predicted_labels=c(predicted_labels, 1)
+      else predicted_labels=c(predicted_labels, 0)
+    }
+  }
+  # if use 3_5 dataset as input, return predicted labels containing 3 or 5
+  else if (identical(data,train_data_3_5)|identical(data,test_data_3_5)){
+    for (column in c(1:ncol(data))){
+      probability=1/(1+exp(theta%*%data[,column]+1))
+      if (probability>=0.5) predicted_labels=c(predicted_labels, 5)
+      else predicted_labels=c(predicted_labels, 3)
+    }
+  }
+  # else return predicted labels containing -1 or 1
+  else  {
+    for (column in c(1:ncol(data))){
+      probability=1/(1+exp(theta%*%data[,column]+1))
+      if (probability>=0.5) predicted_labels=c(predicted_labels, 1)
+      else predicted_labels=c(predicted_labels, -1)
+    }
+  }
+  return (predicted_labels)
+}
+
+
+# Run train() on the 0/1 dataset (train_data_0_1, train_labels_0_1) using a suitable learning rate. 
+theta=train(data=train_data_0_1, labels=train_labels_0_1, alpha=0.1)
+# Then predict() labels for the same data.
+predict_labels_0_1=predict(theta=theta, data=train_data_0_1)
+
+predictionVslabels=c(predict_labels_0_1==train_labels_0_1)
+# find all the images with wrong prediction
+Position_wrong_predict_0_1=which(predictionVslabels==FALSE)
+Position_wrong_predict_0_1
+Position_correct_predic_0_1t=which(predictionVslabels==TRUE)
+# Visualize two samples where your model correctly predicted the label
+image(rotate(matrix(data=train_data_0_1[ , 100],ncol=28,nrow=28)),col=gray(0:255/255),
+      main="one example where my model correctly predicted the label 
+      true label: 0 and predicted label 0")
+image(rotate(matrix(data=train_data_0_1[ , 10000],ncol=28,nrow=28)),col=gray(0:255/255),
+      main="another example my model correctly predicted the label
+      true label: 1 and predicted label 1")
+# Visualize two samples where your model prediction is incorrect. 
+image(rotate(matrix(data=train_data_0_1[ , 2095],ncol=28,nrow=28)),col=gray(0:255/255),
+      main="one example where my model incorrectly predicted the label
+      true label: 0 and predicted label 1")
+image(rotate(matrix(data=train_data_0_1[ , 9542],ncol=28,nrow=28)),col=gray(0:255/255),
+      main="another example in my model incorrectly predicted the label
+      true label: 1 and predicted label 0")
+
+#########################################
+# Repeat the same with the 3/5 dataset. 
+# Again, you should show two correct predictions and two incorrect ones.
+
+
+
+theta=train(data=train_data_3_5, labels=train_labels_3_5, alpha=0.1)
+# Then predict() labels for the same data.
+predict_labels_3_5=predict(theta=theta, data=train_data_3_5)
+predictionVslabels_3_5=c(predict_labels_3_5==train_labels_3_5)
+# find all the images with wrong prediction
+Position_wrong_predict_3_5=which(predictionVslabels_3_5==FALSE)
+Position_wrong_predict_3_5
+Position_correct_predict_3_5=which(predictionVslabels_3_5==TRUE)
+# Visualize two samples where your model correctly predicted the label
+image(rotate(matrix(data=train_data_3_5[ , 100],ncol=28,nrow=28)),col=gray(0:255/255),
+      main="one example where my model correctly predicted the label
+      true label: 3 and predicted label 3")
+image(rotate(matrix(data=train_data_3_5[ , 10000],ncol=28,nrow=28)),col=gray(0:255/255),
+      main="another example my model correctly predicted the label
+      true label: 5 and predicted label 5")
+# Visualize two samples where your model prediction is incorrect. 
+image(rotate(matrix(data=train_data_3_5[ , 53],ncol=28,nrow=28)),col=gray(0:255/255),
+      main="one example where my model incorrectly predicted the label
+      true label: 3 and predicted 5")
+image(rotate(matrix(data=train_data_3_5[ , 11533],ncol=28,nrow=28)),col=gray(0:255/255),
+      main="another example in my model incorrectly predicted the label
+      true label: 5 and predicted label 3")
+```
+
+4. Modeling [20 points]
+
+First, implement the following functions:
+
+accuracy(labels, labels_pred): Compute prediction accuracy.
+Inputs:
+labels: vector containing the true labels 
+labels_pred: vector containing predicted labels 
+Output:
+acc: fraction of predicted labels that match true labels, as a number between 0 and 1
+
+model(train_data, train_labels, test_data, test_labels, alpha): Train and evaluate a model.
+Inputs:
+train_data, train_labels: samples to be used for training, and for computing training accuracy
+test_data, test_samples: unseen samples for computing test accuracy
+alpha: learning rate hyperparameter for training
+Output (as a list):
+theta: learned model parameters
+train_acc: prediction accuracy on training data
+test_acc: prediction accuracy on test data
+
+```{r}
+accuracy=function(labels, labels_pred){
+  # compare each element of labels, labels_pred, give boolean results to a new vector
+  predictionVslabels=c(labels==labels_pred)
+  # count number of elements with correct prediction
+  Num_correct=length(which(predictionVslabels==TRUE))
+  # return accuracy
+  acc=Num_correct/length(labels)
+  return (acc)
+}
+
+model= function(train_data, train_labels, test_data, test_labels, alpha){
+  # use train_data, train_labels and alpha to calculate theta
+  theta=train(data=train_data, labels=train_labels, alpha=alpha)
+  # use theta to calculate accuracy
+  train_acc=accuracy(labels=train_labels, labels_pred=predict(theta=theta, data=train_data))
+  test_acc=accuracy(labels=test_labels, labels_pred=predict(theta=theta, data=test_data))
+  output=list(theta, train_acc, test_acc)
+  return(output)
+}
+
+# Train 2 models, one on the 0/1 set and another on the 3/5 set, and 
+# compute their training and test accuracies.
+accuracy_0_1=model(train_data=train_data_0_1, 
+                   train_labels=train_labels_0_1, 
+                   test_data=test_data_0_1, 
+                   test_label=test_labels_0_1,
+                   alpha=0.1)
+print("accuracy_0_1:")
+accuracy_0_1
+accuracy_3_5=model(train_data=train_data_3_5, 
+                   train_labels=train_labels_3_5, 
+                   test_data=test_data_3_5, 
+                   test_label=test_labels_3_5,
+                   alpha=0.1)
+print("accuracy_3_5:")
+accuracy_3_5
+
+# Repeat the above step 10 times, with varying learning rates. 
+# Plot the training and test accuracies against learning rate for 0/1 and 3/5.
+learning_df=data.frame()
+for (i in c(1:10)) { # run 10 times with different learning rates alpha
+  # initilize learning rates, for 10 loops, the learning rates are
+  # 0.01*2^(i-1). here, i is the loo number
+  learning_rates=0.001*2^(i-1)
+  # repeat testing 10 times, and calculate mean and standard deviation of each acc
+  Train_acc_0_1=c()
+  Test_acc_0_1=c()
+  Train_acc_3_5=c()
+  Test_acc_3_5=c()
+  for (j in c(1:10)) {
+    accuracy_0_1=model(train_data=train_data_0_1, 
+                       train_labels=train_labels_0_1,
+                       test_data=test_data_0_1,
+                       test_label=test_labels_0_1,
+                       alpha=learning_rates)
+    accuracy_3_5=model(train_data=train_data_3_5, 
+                       train_labels=train_labels_3_5, 
+                       test_data=test_data_3_5, 
+                       test_label=test_labels_3_5,
+                       alpha=learning_rates)
+    Train_acc_0_1=c(Train_acc_0_1, accuracy_0_1[[2]])
+    Test_acc_0_1=c(Test_acc_0_1,accuracy_0_1[[3]])
+    Train_acc_3_5=c(Train_acc_3_5,accuracy_3_5[[2]])
+    Test_acc_3_5=c(Test_acc_3_5,accuracy_3_5[[3]])
+  }
+  # calcualte mean and SD for each ACC from 10 repeats with same learning rates
+  # save them in a temp dataframe
+  temp_df=data.frame(learning_rates=learning_rates,
+                     mean_Train_acc_0_1=mean(Train_acc_0_1),
+                     SD_Train_acc_0_1=sd(Train_acc_0_1),
+                     mean_Test_acc_0_1=mean(Test_acc_0_1),
+                     SD_Test_acc_0_1=sd(Train_acc_0_1),
+                     mean_Train_acc_3_5=mean(Train_acc_3_5),
+                     SD_Train_acc_3_5=sd(Train_acc_3_5),
+                     mean_Test_acc_3_5=mean(Test_acc_3_5),
+                     SD_Test_acc_3_5=sd(Test_acc_3_5))
+  # generate the final df containing learning rates, mean accuracy and SD accurcy
+  learning_df=rbind(learning_df,temp_df)
+  }
+# plot leaning rates vs accuracy using ggplot2
+library(ggplot2)
+ggplot(learning_df, aes(x=log2(learning_rates/0.001), color="Train_acc_0_1"))+
+  geom_point(aes(x=log2(learning_rates/0.001), y=mean_Train_acc_0_1, color="Train_acc_0_1"))+
+  geom_line(aes(x=log2(learning_rates/0.001), y=mean_Train_acc_0_1, color="Train_acc_0_1"))+
+  geom_errorbar(aes(ymin=mean_Train_acc_0_1-SD_Train_acc_0_1,
+                    ymax=mean_Train_acc_0_1+SD_Train_acc_0_1,color="Train_acc_0_1"), width=.2)+
+  geom_point(aes(x=log2(learning_rates/0.001), y=mean_Test_acc_0_1, color="Test_acc_0_1"))+
+  geom_line(aes(x=log2(learning_rates/0.001), y=mean_Test_acc_0_1, color="Test_acc_0_1"))+
+  geom_errorbar(aes(ymin=mean_Test_acc_0_1-SD_Test_acc_0_1,
+                    ymax=mean_Test_acc_0_1+SD_Test_acc_0_1,color="Test_acc_0_1"), width=.2)+
+  geom_point(aes(x=log2(learning_rates/0.001), y=mean_Train_acc_3_5, color="Train_acc_3_5"))+
+  geom_line(aes(x=log2(learning_rates/0.001), y=mean_Train_acc_3_5, color="Train_acc_3_5"))+
+  geom_errorbar(aes(ymin=mean_Train_acc_3_5-SD_Train_acc_3_5,
+                    ymax=mean_Train_acc_3_5+SD_Train_acc_3_5,color="Train_acc_3_5"), width=.2)+
+  geom_point(aes(x=log2(learning_rates/0.001), y=mean_Test_acc_3_5, color="Test_acc_3_5"))+
+  geom_line(aes(x=log2(learning_rates/0.001), y=mean_Test_acc_3_5, color="Test_acc_3_5"))+
+  geom_errorbar(aes(ymin=mean_Test_acc_3_5-SD_Test_acc_3_5,
+                    ymax=mean_Test_acc_3_5+SD_Test_acc_3_5,color="Test_acc_0_1"), width=.2)+
+  xlab("log2(learning rate/0.001)")+
+  ylab("Accuracy")+
+  ggtitle("learning rates vs accuracy")
+  
+
+```
+
+5. Learning Curves [20 points]
+
+One of the factors that affects machine learning algorithms is how much data is available to train it with. Study how model performance (here accuracy) varies with training dataset size by plotting Learning Curves.
+
+For each classification task (0/1 and 3/5), choose a suitable sequence of training set sizes, e.g. 10%, 20%, 30% . 100% (10-20 different sizes should suffice). For each size, sample that many inputs from the respective training dataset, train a model, and compute the resulting training and test accuracies.
+Create two plots, one showing the learning curves (training and test) for 0/1, and another for 3/5. Comment on the trends of accuracy values you observe for each set.
+```{r}
+# revise model function with a option for train sample size
+
+model2= function(train_data, train_labels, test_data, test_labels, alpha, col_sample){
+  # get the column numbers based on each samplesize
+  # numberOfdata=as.integer(length(train_labels)*sample_size)
+  # get sample of column labels
+  # col_sample=sample.int(length(train_labels), length(train_labels)*percentage,replace=T)
+ 
+  # use train_data, train_labels and alpha to calculate theta
+  theta=train(data=train_data[,col_sample], labels=train_labels[col_sample], alpha=alpha)
+  # use theta to calculate accuracy
+  train_acc=accuracy(labels=train_labels, labels_pred=predict(theta=theta, data=train_data))
+  test_acc=accuracy(labels=test_labels, labels_pred=predict(theta=theta, data=test_data))
+  output=list(theta, train_acc, test_acc)
+  return(output)
+}
+
+learning_Curve_df=data.frame()
+# I choose 5% and 90% of the sample for this analysisi
+sample_percentage=c(0.05, 0.1, 0.2, 0.3, 0.4,0.5, 0.6,0.7,0.8, 0.9)
+#size_0_1=as.integer(sample_sizes*length(train_labels_0_1))
+#size_3_5=as.integer(sample_sizes*length(train_labels_3_5))
+for (size in sample_percentage) { # run 10 times with different training datasize
+  learning_rates=0.032
+  # repeat testing 10 times, and calculate mean and standard deviation of each acc
+  Train_acc_0_1=c()
+  Test_acc_0_1=c()
+  Train_acc_3_5=c()
+  Test_acc_3_5=c()
+  #generate sample column for 0/1
+  cols_0_1=sample(ncol(train_data_0_1),ncol(train_data_0_1)*size)
+  #generate sample column for 3/5
+  cols_3_5=sample(ncol(train_data_3_5),ncol(train_data_3_5)*size)
+
+  for (j in c(1:10)) {
+    accuracy_0_1=model2(train_data=train_data_0_1, 
+                       train_labels=train_labels_0_1,
+                       test_data=test_data_0_1,
+                       test_label=test_labels_0_1,
+                       alpha=learning_rates,
+                       col_sample=cols_0_1
+                       )
+    accuracy_3_5=model2(train_data=train_data_3_5, 
+                       train_labels=train_labels_3_5, 
+                       test_data=test_data_3_5, 
+                       test_label=test_labels_3_5,
+                       alpha=learning_rates,
+                       col_sample=cols_3_5
+                       )
+    Train_acc_0_1=c(Train_acc_0_1, accuracy_0_1[[2]])
+    Test_acc_0_1=c(Test_acc_0_1,accuracy_0_1[[3]])
+    Train_acc_3_5=c(Train_acc_3_5,accuracy_3_5[[2]])
+    Test_acc_3_5=c(Test_acc_3_5,accuracy_3_5[[3]])
+  }
+  # calcualte mean and SD for each ACC from 10 repeats with same learning rates
+  # save them in a temp dataframe
+  temp_df=data.frame(learning_rates=learning_rates,
+                     sample_size=size,
+                     mean_Train_acc_0_1=mean(Train_acc_0_1),
+                     SD_Train_acc_0_1=sd(Train_acc_0_1),
+                     mean_Test_acc_0_1=mean(Test_acc_0_1),
+                     SD_Test_acc_0_1=sd(Train_acc_0_1),
+                     mean_Train_acc_3_5=mean(Train_acc_3_5),
+                     SD_Train_acc_3_5=sd(Train_acc_3_5),
+                     mean_Test_acc_3_5=mean(Test_acc_3_5),
+                     SD_Test_acc_3_5=sd(Test_acc_3_5))
+  # generate the final df containing learning rates, mean accuracy and SD accurcy
+  learning_Curve_df=rbind(learning_Curve_df,temp_df)
+}
+
+ggplot(learning_Curve_df, aes(x=sample_size*100, color="Train_acc_0_1"))+
+  geom_point(aes(x=sample_size*100, y=mean_Train_acc_0_1, color="Train_acc_0_1"))+
+  geom_line(aes(x=sample_size*100, y=mean_Train_acc_0_1, color="Train_acc_0_1"))+
+  geom_errorbar(aes(ymin=mean_Train_acc_0_1-SD_Train_acc_0_1,
+                    ymax=mean_Train_acc_0_1+SD_Train_acc_0_1,color="Train_acc_0_1"), width=5)+
+  geom_point(aes(x=sample_size*100, y=mean_Test_acc_0_1, color="Test_acc_0_1"))+
+  geom_line(aes(x=sample_size*100, y=mean_Test_acc_0_1, color="Test_acc_0_1"))+
+  geom_errorbar(aes(ymin=mean_Test_acc_0_1-SD_Test_acc_0_1,
+                    ymax=mean_Test_acc_0_1+SD_Test_acc_0_1,color="Test_acc_0_1"), width=5)+
+  xlab("Training set sizes (%)")+
+  ylab("Accuracy")+
+  ggtitle("Training set sizes vs accuracy of 0/1 dataset")
+
+ggplot(learning_Curve_df, aes(x=sample_size*100))+
+  geom_point(aes(x=sample_size*100, y=mean_Train_acc_3_5, color="Train_acc_3_5"))+
+  geom_line(aes(x=sample_size*100, y=mean_Train_acc_3_5, color="Train_acc_3_5"))+
+  geom_errorbar(aes(ymin=mean_Train_acc_3_5-SD_Train_acc_3_5,
+                    ymax=mean_Train_acc_3_5+SD_Train_acc_3_5,color="Train_acc_3_5"), width=5)+
+  geom_point(aes(x=sample_size*100, y=mean_Test_acc_3_5, color="Test_acc_3_5"))+
+  geom_line(aes(x=sample_size*100, y=mean_Test_acc_3_5, color="Test_acc_3_5"))+
+  geom_errorbar(aes(ymin=mean_Test_acc_3_5-SD_Test_acc_3_5,
+                    ymax=mean_Test_acc_3_5+SD_Test_acc_3_5,color="Test_acc_3_5"), width=5)+
+  xlab("Training set sizes (%)")+
+  ylab("Accuracy")+
+  ggtitle("Training set sizes vs accuracy of 3/5 dataset")
+```
+
