@@ -1,0 +1,250 @@
+---
+title: "hw2"
+date: "September 18, 2017"
+output: word_document
+---
+
+1. Professional Education by State [20 points]
+
+
+```{r}
+library(ggplot2) # load library ggplot2
+data(midwest)
+# use box plot to visilize the "percprof" of each tountry grouped by state
+ggplot(midwest, aes(reorder(state, -percprof, median), percprof)) +
+geom_boxplot() +
+coord_flip() +
+scale_x_discrete("State")
+
+# calculate the mean and standard derivation of "percprof" for each state
+state_unique=unique(midwest$state) # find all the states in column midwest$state
+
+# calculate mean and standard derivation for each state
+mean_Q1=c(1:length(state_unique)) 
+SD_Q1 =c(1:length(state_unique))
+Median_Q1=c(1:length(state_unique))
+names(mean_Q1)=state_unique
+names(SD_Q1)=state_unique
+names(Median_Q1)=state_unique
+j=1
+for (i in state_unique){
+  mean_Q1[j]=mean(midwest$percprof[midwest$state==i])
+  SD_Q1 [j] =sd(midwest$percprof[midwest$state==i])
+  Median_Q1 [j]= median(midwest$percprof[midwest$state==i])
+  j=j+1
+}
+stat_Q1=data.frame(state_unique,mean_Q1,SD_Q1,Median_Q1)  
+names(stat_Q1)=c("state","mean","sd","median")
+stat_Q1
+```
+
+# Rpeort: 
+# Anser to Q1: I used boxplot in ggplot2 to visualize the percentage of people that have a professional education for each county, grouped by state. The boxplot shows the IQR and outlier of percentage of people having professional education in each state. The middle line in this boxplot shows the median value. As shown from this figure, IN has the highest percentage of population with a professional education, and OH, IL and WI have the lowest median value of percentage of population with a professional education. OH, IL and WI have very similar median value, and OH has a slightly lower median value compared with the other two states, indicating that OH has the lowest percentage of population with a professional education. OH and WI have similar median value and IQR. WI has longer spead than that of OH. OH have more outlier points than that of WI. The spread of MI is higher than the spread in all other categories.
+
+# I also wrote a small piece of code to calucalte the mean, sd and median of percentage of people having professional education in different state. As shown in the table below, IN has the highest percentage of population with a professional education (mean= 5.045153, median = 4.440127). OH has lowerest percentage of population with a professional education with median value equal to 3.328012. Howver, if we compare the mean value, we found that WI has the lowest percentage of population with a professional education with smallest mean = 4.044846. 
+
+
+2. School and College Education by State [20 points]
+
+
+```{r}
+data(midwest)
+# a combined pair-wise plot of perchsd,percollege,state in midwest dataframe
+school_colledge=data.frame(midwest$perchsd,midwest$percollege,midwest$state)
+library(GGally)
+ggpairs(school_colledge)
+
+# plot perchsd vs. state, percollege vs. state, perchsd vs. percollege using three different plots
+# a boxplot of perchsd vs. state
+ggplot(midwest, aes(reorder(state, -perchsd, median), perchsd)) +
+geom_boxplot() +
+coord_flip() +
+scale_x_discrete("State")
+
+# a boxplot of percollege vs. state
+ggplot(midwest, aes(reorder(state, -percollege, median), percollege)) +
+geom_boxplot() +
+coord_flip() +
+scale_x_discrete("State")
+
+#plot perchsd vs. percollege
+qplot(x=perchsd,y=percollege,data=midwest,xlab="perchsd", ylab="percollege",col=state)
+qplot(x=perchsd,y=percollege,data=midwest,xlab="perchsd", ylab="percollege",col=state, facets =state~.)
+```
+
+# Rpeort: 
+# Answer to Q2: I explored the three-way relationship between "perchsd", "percollege" and "state" by combined pair-wise plot using ggpairs. Also, I made a seperate plot of perchsd vs. percollege. We can conclude from above plot that there is a postive nonlinear relationship between "perchsd" and"percollege". "perchsd" and "percollege" increase together nonlinearly (corr = 0.777, calculated by ggpairs). 
+
+# The boxplot on column 3 row 1 and a seperate box plot (perchsd vs. state) show percentage of people with a high school diploma in each county ("perchsd") for each state, and WI have the highest median value of "perchsd" among five states. IL and IN have the lowest median value of "perchsd". IL has a larger IQR than that of IN, and IN has more outliners than that of IL. 
+
+# The boxplot on column 3 row 2 and a seperate box plot (percollege vs. stat) show the percentage of college educated population in each county ("percollege") for each state. The median values of "percollege" WI, MI and IL are larger than that of IN and OH. WI has the highest median value of percollege" among five states. OH and IN have the lowest median value of "percollege". The median value for OH and IN are similar, IN has larger spread than that of OH. OH has larger IQR than that of IN.
+
+
+
+3. Comparison of Visualization Techniques [20 points]
+
+```{r}
+# generate a boxplot from midwest.
+WI=subset(midwest,state=="WI")
+ggplot(WI, aes(state, percollege)) +
+geom_boxplot() +
+coord_flip() +
+scale_x_discrete("WI")
+
+# generate an example of Histogram.
+hist(faithful$eruptions,
+breaks = 40,
+xlab = "eruption times (min)",
+ylab = "count",
+main = "")
+
+# generate an example of qqPlot.
+D = data.frame(samples = c(rnorm(200, 1, 1),
+rnorm(200, 0, 1)));
+D$parameter[1:200] = 'N(1,1)';
+D$parameter[201:400] = 'N(0,1)';
+ggplot(D, aes(sample = samples)) +
+stat_qq() +
+facet_grid(.~parameter)
+
+
+
+
+
+```
+
+
+# discribe different element of boxplot and how they illustrate different statistical properties of a sample
+
+# show a boxplot with labeled elements
+#Boxplot shows several features on the numbers in a dataset distribute. As pointed in this figure (not shown in EMDfile), median stands for the value below which 50% of the data lie. The first and third quantile shows the value below which 25% and 75% of the data lie. The box between first and third quantile is called inner quantile range, which stand for the distribution of middle 50% data. The end of whiskers indiate the the smallest and largest non-outlier in the box.  Addtional dota in box plot indidate the outlier in this data set. Also, the position median in IQR reflect whether the distribution of the data are symmetric or not. Spread mean the range from the smallest number to the largest number, which is also shown in the boxplot.
+
+
+# When would you use a Box Plot, a Histogram, vs. a QQPlot
+# Histogram is a easy and quick way to observe the distribution of a set of numbers. The bin (breaks) in histgram decide how smooth the image looks like. Using large number of bin can see the details of number distribution, but sometimes it is very hard to draw conclusion from the histgram with too many bins. On the other hand, using small numbers of bin can make image smoother. However, using small number of bin could cause the lost of important distribution information. Here is an example of histgram plotted from faithful data set. This histgram shows that the "eruption times (min)" are distributed in two large populations (around 1.8 min and around 4.4 min).
+
+# Comparing with histogram, boxplot gives better statistical distribution details of a set of numbers. Boxplot shows the median value, first and third quartiles, IQR, spread and outlier of the data. It is more quantitative to compare the distribution difference of serveral sets of data by boxplot. boxplot can see the "extreme" non-presentitive values. Here is an example of boxplot of the percollege in WI from midwest dataset. We can tell from this data that the first quantile, median, and third quantile value are around 16, 18, and 22, respectively. The distribution of inner 50% of the data is symmetric, and this data set have three outliers. The major limitation of box plot comparing histogram is that box plot can not deal with data set with mutiple clusters of distributions such as the eruption times shown as an example for histogram.
+
+
+#qqplot is good at comparing the distribution of two datasets. One of the dataset can be a sample dataset reflecting theoretical distribution of certain statatical model.The slope and shape of the line is related with the distribution and quantiles of a dataset compared with theortical values. 
+
+#Figure below on the left (not in RMD file) shows a straight line with slope =1 and this line passes the origin indicating that this sampe have the same distribution. Figrue below on the right (no in RMD file) shows that the slope =1 but this line does not pass the origin, indicating that these two data set have very similar spread, but the value is shifted from each other. 
+
+
+
+4. Random Scatterplots [20 points]
+
+```{r}
+# N stands for number of observation
+N = 100
+random_1 = runif(N,0,100)
+random_2 = runif(N,0,100)
+plot(random_1,random_2)
+# Type dev.new() in the console to open a new graphics window. 
+# Then run plot(random_1,random_2) in the console, save images in different formats
+# To generate images with different N, give different N vlaue, plot(random_1,random_2), and save images in different formats. 
+```
+```{R}
+#generate data frame contain file size and N 
+N=c(100,500,1000,5000,10000,25000,50000,100000) # different N used for runif
+pdf=c(3,6,10,38,74,180,358,715) # size of pdf image uder different N
+jpeg=c(60,155,235,442,468,440,315,78) # size of jpeg image under different N
+PNG=c(6,12,18,39,44,37,18,7) # size of PNG image under different N
+ps=c(7,17,29,126,248,615,1225,2446) # size of ps image under different N
+DF=data.frame(N,pdf,jpeg,PNG,ps) # combine all the information in a data frame, named DF
+```
+
+```{r}
+#plot the graph showing the relationship between file size and N 
+plot(DF$N,DF$pdf,type="o",pch=16,col="red",xlim=c(0,100000),ylim=c(0,2500),xlab="N", ylab="File Size (KB)", main=" the relationship between file size and N for pdb, jpeg, PNG and ps files")
+points(DF$N,DF$jpeg,type="o",pch=16,col="blue")
+points(DF$N,DF$PNG,type="o",pch=16,col="black")
+points(DF$N,DF$ps,type="o",pch=16,col="green")
+legend("topleft", c("pdf","jpeg","PNG","ps"),lty=1,col=c("red","blue","black","green"),pch = 16)
+```
+# reports: 
+# Anser to Q4: I have genereated two sets of N random values using runif(N, 0, 100). These two sets of values were saved in random_1 and random_2. Then, I displayed the scatterplot of these two sets of values using random_1 as x-values and random_1 as y-values.
+
+# Figure on the left (not shown in Rmd file) were generated using N = 100 and Figure on the right were generated using N= 100000.
+
+# I generated 8 sets of pictures (N=c(100,500,1000,5000,10000,25000,50000,100000)) and saved in four different formats (pdf,jpeg,PNG and ps). The relationship between and N and image size for each format were ploted below. The size of pdf file (red) linear increase together with N. The size of ps file (green) also linear increase together with N, and the file size for ps is always larger than that of pdf. The size of jpeg file (blue) quickly increase when N increased from 100 to 5000, then it has a very small increase from 442 KB to 468 KB when N increased from 5000 to 10000. The size of jpeg file decrease from 468 KB to 78 KB when N increased from 10000 to 100000. Compared with other types of files, jpeg file has largest size when N = 100,500,1000,5000. When N = 100000,the size of jpeg file is smaller than that of ps file and pdf file. PNG files always have small size no matter N is small or large. The size of PNG file increased from 6 KB to 44 KB when N increased from 100 to 10000.The size of PNG file decreased from 44 KB to 7 KB when N decreased from 10000 to 100000.
+
+
+
+
+5. Diamonds [20 points]
+```{r}
+data(diamonds)
+head(diamonds)
+#diamonds5000=sample(diamonds,5000)
+plot(diamonds$color)
+hist(diamonds$carat,breaks=20, main="carrat", xlab="carat",xlim=c(0,4))
+hist(diamonds$price,breaks=50, main="price",xlab="price")
+DF=data.frame(diamonds$carat, diamonds$price,diamonds$color)
+ggpairs(DF)
+plot(DF$diamonds.carat, DF$diamonds.price)
+plot(DF$diamonds.color,DF$diamonds.carat )
+plot(DF$diamonds.color,DF$diamonds.price)
+```
+```{r}
+ggplot(diamonds,aes(carat,price, color=color))+geom_point()
+ggplot(diamonds, aes(reorder(color, -carat, median), carat,color=color)) +
+geom_boxplot() +
+coord_flip() +
+scale_x_discrete("color")
+ggplot(diamonds, aes(reorder(color, -price, median), price,color=color)) +
+geom_boxplot() +
+coord_flip() +
+scale_x_discrete("color")
+```
+
+# answer to quation 5. 
+# I ploted the bar chart for color and histgram for carat and price. bar chart of color shows that there are 7 different type of color in this column. Among them, color "G" have the highest number of observation (larger than 10000). color "J" have the lowest number of observation (less than 4000). Histgram of carat shows the distribution of different carat. More than 50% of diamonds are less than 1 carat. If use 20 breaks in this histgram, we can see that the highest "break" include diamond with size between 0.2 and 0.4. The frequency deceases as carat increase. The number of diamonds with carat larger than 1.6 is very low. The histgram of price shows that the largest polution of diamonds have price between 500 and 1000 (the second "break"). The frequency deceases as price increase.
+
+#conlusion from three-way relationship
+
+Plot histograms or bar charts for color, carat, and price, illustrating their distributions. What can you infer from these distributions (e.g. shape, skew, tail, etc.)?
+
+Investigate the three-way relationship between color, carat and price. What are your conclusions? Provide a combined pair-wise plot and/or separate graphs that illustrate these relationships.
+
+If you encounter computational difficulties, consider using a smaller dataframe whose rows are sampled from the original diamonds dataframe. Use the function sample() to create a subset of indices that may be used to create the smaller dataframe.
+
+
+
+Report: Your observations on the distribution of values for color, carat, and price, and a graph for each; a brief writeup explaining the three-way relationship between price, carat, and color, with appropriate graph(s).
+Code: R code you used to plot the graph(s).
+
+```{r}
+# three factors
+qplot(x=carat, y=price,data= diamonds, col=color,xlim=c(0,3))
+unique_color= unique(diamonds$color)
+diamonds_D=subset(diamonds,color=="D")
+diamonds_E=subset(diamonds,color=="E")
+diamonds_F=subset(diamonds,color=="F")
+diamonds_G=subset(diamonds,color=="G")
+diamonds_H=subset(diamonds,color=="H")
+diamonds_I=subset(diamonds,color=="I")
+diamonds_J=subset(diamonds,color=="J")
+qplot(x=carat, y=price,data= diamonds_D, col=clarity,xlim=c(0,3),main="color: D")
+qplot(x=carat, y=price,data= diamonds_E, col=clarity,xlim=c(0,3),main="color: E")
+qplot(x=carat, y=price,data= diamonds_F, col=clarity,xlim=c(0,3),main="color: F")
+qplot(x=carat, y=price,data= diamonds_G, col=clarity,xlim=c(0,3),main="color: G")
+qplot(x=carat, y=price,data= diamonds_H, col=clarity,xlim=c(0,3),main="color: H")
+qplot(x=carat, y=price,data= diamonds_I, col=clarity,xlim=c(0,3),main="color: I")
+```
+
+```{r}
+qplot(x=carat, y=price,data= diamonds, facets = color~., col=color,xlim=c(0,3))
+
+qplot(x=carat, data= diamonds, binwidth = 0.2, facets = .~color, col=color,xlim=c(0,3.5))
+
+qplot(x=price, data= diamonds, binwidth = 1000, facets = color~., col=color)
+
+
+```
+
+```{r}
+#introduce another property clarity
+plot(x=diamonds$color, y=diamonds$price)
+```
+
