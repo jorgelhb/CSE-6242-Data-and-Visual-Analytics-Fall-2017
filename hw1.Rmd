@@ -1,0 +1,120 @@
+---
+title: "Homework1"
+
+date: "September 10, 2017"
+output: HW1: R Programming
+---
+
+
+2. Log Gamma (Loop)    [20 points]
+
+```{r}
+
+log_gamma_loop=function(n=5){
+result=0
+if(n==1){
+ result=0     
+ return (result)
+}else{
+  for(var in seq(1,(n-1),by=1)){
+    temp = log(var)
+    result = result+temp 
+  }
+  return (result)
+  }
+}
+print(log_gamma_loop(5))
+```
+
+3. Log Gamma (Recursive)    [20 points]
+
+```{r}
+log_gamma_recursive=function(n=5){
+    if(n==1) result=0
+    else  result=log(n-1)+log_gamma_recursive(n-1)
+    return (result)
+}
+print(log_gamma_recursive(5))
+```
+
+4. Sum of Log Gamma [20 points]
+
+```{r}
+#fucntion sum_log_gamma_loop(n)
+sum_log_gamma_loop=function(n=7){
+  sum_log_gamma_loop=0
+  for(var in seq(1,n,by=1)){
+    temp=log_gamma_loop(var)
+    sum_log_gamma_loop=sum_log_gamma_loop+temp
+    }
+  return(sum_log_gamma_loop)
+}
+print(sum_log_gamma_loop(20))
+
+# function sum_log_gamma_recursive(n) 
+sum_log_gamma_recursive=function(n=7){
+  sum_log_gamma_recursive=0
+  for(var in seq(1,n,by=1)){
+    temp=log_gamma_recursive(var)
+    sum_log_gamma_recursive=sum_log_gamma_recursive+temp
+  }
+  return(sum_log_gamma_recursive)
+}
+print(sum_log_gamma_recursive(20))
+
+```
+
+
+5. Compare Results to Built-In R Function [30 points]
+```{r}
+#fucntion sum_lgamma(n)
+sum_lgamma=function(n=7){
+  sum_lgamma=0
+  for(var in seq(1,n, by=1)){
+    temp=lgamma(var)
+    sum_lgamma=sum_lgamma+temp
+  }
+    return (sum_lgamma)
+}
+print(sum_lgamma(20))
+
+#calculate the execution time for three functions. n= 3000
+max_n=3000
+system.time(sum_log_gamma_loop(max_n))
+system.time(sum_log_gamma_recursive(max_n))
+system.time(sum_lgamma(max_n))
+
+```
+
+```{r}
+max_n=3000
+x=seq(200,max_n,by=200) 
+#calculate user time for equation sum_lgamma with n= 200, 400, ....., 3000
+user_sum_lgamma=x
+for (var in seq(200,max_n,by=200)){
+  i=var/200
+  user_sum_lgamma[i]=system.time(sum_lgamma(var))[1]
+  }
+#calculate user time for equation sum_log_gamma_loop n= 200, 400, ....., 3000
+user_sum_log_gamma_loop=x
+for (var in seq(200,max_n,by=200)){
+  i=var/200
+  user_sum_log_gamma_loop[i]=system.time(sum_log_gamma_loop(var))[1]
+  }
+#calculate elapsed time for equation _sum_log_gamma_recursive n= 200, 400, ....., 3000
+user_sum_log_gamma_recursive=x
+for (var in seq(200,max_n,by=200)){
+  i=var/200
+  user_sum_log_gamma_recursive[i]=system.time(sum_log_gamma_recursive(var))[1]
+}
+#plot different system of three function with increase of n values
+plot(x,user_sum_log_gamma_recursive,type="o", main="Figure 1: Comparision of execution time for three functions",col="red", xlab="integer n", ylab = "Time (s)",pch = 8)
+points(x,user_sum_log_gamma_loop,type="o",col="green",pch = 8)
+points(x,user_sum_lgamma,type="o",col="blue",pch = 8)
+legend("topleft", c("sum_log_gamma_recursive","sum_log_gamma_loop","sum_lgamma"),lty=1,col=c("red","green","blue"),pch = 8)
+
+
+```
+
+
+
