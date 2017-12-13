@@ -1,0 +1,45 @@
+---
+title: "AC3"
+date: "October 22, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+library(ggmap)
+library(maps)
+library(mapdata)
+# use midwest dataset
+data(midwest)
+```
+
+```{r}
+# draw a map of 5 states from midwest
+usa=map_data("county")
+midwest_map=subset(usa, region=="illinois"|region=="indiana"|region=="wisconsin"|
+                 region=="michigan"|region=="minnesota")
+# convert all the county to uper case letters
+midwest_map$subregion=toupper(midwest_map$subregion)
+# generate a new column in midwest_map named percollege
+# added the value of percollege in midwest of each county to the corresponding county
+# in midwest_map percollege column
+midwest_map$percollege=0
+for (i in c(1:length(midwest_map$subregion))){
+  for (j in c(1:length(midwest$county))){
+    if (midwest$county[j]==midwest_map$subregion[i]) midwest_map$percollege[i]=midwest$percollege[j]
+  }
+}
+
+
+ggplot()+
+  geom_polygon(data = midwest_map, aes(x=long, y = lat, group=group, fill=percollege, color=region)) + 
+  coord_fixed(1.3)
+  
+
+
+```
+
