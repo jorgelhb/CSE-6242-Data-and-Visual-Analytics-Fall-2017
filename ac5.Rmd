@@ -1,0 +1,41 @@
+---
+title: "igraph"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(igraph)
+getwd()
+dir()
+setwd("/home")
+# read file
+a=read.csv(file="facebook_combined.txt", sep = " ")
+network=graph.data.frame(a, directed =  FALSE)
+# number of edges for each node
+edge=degree(network)
+#total edge
+total_edge=sum(edge)
+# number of nodes
+nodes=length(unique(unlist(a)))
+# aveage edge/nodes
+aveerage_edge_per_nodes=sum(edge)/nodes
+
+# histogram of the number of edges for each nodes
+hist(edge, xlim = c(0,200), breaks=200, xlab="Number of Edges", ylab="Count", main="Fig. 1 Histogram of number of edges for each node")
+
+# make a subset of data from original dataset
+b=subset(a, a[,1]<=100&a[,2]<=100)
+network=graph.data.frame(b, directed =  FALSE)
+# highlight the nodes with different color
+V(network)$color="yellow"
+V(network)[degree(network)>=5]$color="green"
+V(network)[degree(network)>=10]$color="red"
+plot(network, main= "Fig. 2 Visualization of the network (1-100)")
+
+
+```
+
